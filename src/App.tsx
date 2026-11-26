@@ -485,6 +485,30 @@ export default function App({account=null,onProfileSave}:any) {
     const channel=db.channel('spindle-threads').on('postgres_changes',{event:'*',schema:'public',table:'threads'},load).subscribe();
     return ()=>{db.removeChannel(channel)};
   },[account?.id]);
+  const [editingCopy,setEditingCopy]=useState(null);
+  const [copyError,setCopyError]=useState('');
+  const [copyBusy,setCopyBusy]=useState(false);
+  function openCopy(item){
+    setCopyError('');
+    setEditingCopy({original:item,condition:item.condition,value:item.value??'',notes:item.notes||''});
+  }
+  async function saveCopy(event){
+    event.preventDefault();
+    if(copyBusy || !editingCopy)return;
+    const {original,condition,value,notes}=editingCopy;
+    const updated={...original,condition,value:value===''?null:Number(value),notes:notes.trim()};
+    setCopyBusy(true);
+    try{
+      if(account){
+        const {data,error}=await db.from('shelf_items').update({condition,payload:updated})
+          .eq('id',original.id).eq('user_id',account.id).eq('payload',JSON.stringify(original)).select('id');
+        if(error)throw error;
+        if(!data.length)throw new Error('This copy changed. Refresh the shelf and reopen it to edit.');
+      }
+      setShelf(previous=>previous.map(row=>row.id===original.id?updated:row));
+      setEditingCopy(null);triggerToast('Copy details saved.');
+    }catch(error){setCopyError(error.message)}finally{setCopyBusy(false)}
+  }
   const [tradePeer,setTradePeer]=useState(null);
   async function toggleTrade(item){
     const updated={...item,openToTrade:!item.openToTrade};
@@ -556,7 +580,7 @@ export default function App({account=null,onProfileSave}:any) {
       format: addForm.format,
       pressing: addForm.pressing,
       condition: addForm.condition,
-      value: Number(addForm.value) || 25,
+      value: addForm.value==='' ? null : Number(addForm.value),
       openToTrade: addForm.openToTrade,
       seed: addForm.seed || 'loveless',
       notes: 'Added via quick catalog.'
@@ -880,7 +904,7 @@ export default function App({account=null,onProfileSave}:any) {
                             {item.title}
                           </h3>
                           <span className="font-mono text-xs font-bold text-[#15803d] bg-[#dcfce7] border border-[#86efac] px-1.5">
-                            ${item.value}
+                            {item.value==null?'Unpriced':'$'+item.value}
                           </span>
                         </div>
                         <div className="text-xs font-bold text-[#334e68]">{item.artist} ({item.year})</div>
@@ -888,6 +912,7 @@ export default function App({account=null,onProfileSave}:any) {
                           {item.pressing}
                         </div>
                       </div>
+                      <button className="bevel-btn px-2 py-1 mt-2 text-xs" onClick={()=>openCopy(item)}>Copy details</button>
                       {account && item.discogsId && <button className="bevel-btn px-2 py-1 mt-2 text-xs" aria-pressed={!!item.openToTrade} onClick={()=>toggleTrade(item)}>{item.openToTrade?'Open to trade · Turn off':'Mark open to trade'}</button>}
                       <div className="mt-3 pt-2 border-t border-dashed border-[#9fb3c8] flex items-center justify-between">
                         <span className="font-mono text-[10px] px-1.5 bg-white border border-[#94a3b8] font-bold">
@@ -1181,6 +1206,17 @@ export default function App({account=null,onProfileSave}:any) {
       {/* ====================================================================
           MODAL 1: ADD CD TO SHELF
       ==================================================================== */}
+      {editingCopy && <dialog open aria-label="Copy details" className="fixed inset-0 z-50 m-auto w-[min(92vw,30rem)] max-h-[85vh] overflow-auto bg-[#ece9d8] bevel-out shadow-xl p-4">
+        <h2 className="font-bold">{editingCopy.original.artist} — {editingCopy.original.title}</h2>
+        <p className="text-sm">{editingCopy.original.format} · {editingCopy.original.pressing}</p>
+        {editingCopy.original.tracks?.length>0 && <details className="my-2"><summary>Tracklist ({editingCopy.original.tracks.length})</summary><ol>{editingCopy.original.tracks.map((t,i)=><li key={i}>{t.position} {t.title} {t.duration}</li>)}</ol></details>}
+        <form onSubmit={saveCopy} className="space-y-3 mt-3">
+          <label className="block">Condition <select value={editingCopy.condition} onChange={e=>setEditingCopy({...editingCopy,condition:e.target.value})}>{["M","NM","VG+","VG","G+","G","F","P"].map(v=><option key={v}>{v}</option>)}</select></label>
+          <label className="block">Estimated value ($) <input type="number" step="0.01" min="0" className="bg-white bevel-in p-1" value={editingCopy.value} onChange={e=>setEditingCopy({...editingCopy,value:e.target.value})}/></label>
+          <label className="block">Notes about this copy<textarea maxLength={4000} className="block w-full bg-white bevel-in p-2" value={editingCopy.notes} onChange={e=>setEditingCopy({...editingCopy,notes:e.target.value})}/></label>
+          {copyError&&<p role="alert">{copyError}</p>}
+          <button disabled={copyBusy} type="button" className="bevel-btn px-3 py-1" onClick={()=>setEditingCopy(null)}>Cancel</button> <button disabled={copyBusy} className="aqua-btn text-white px-3 py-1">Save copy</button>
+        </form></dialog>}
       {showAddModal && (
         <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
           <div className="max-h-[90vh] overflow-y-auto w-full max-w-md bg-[#ece9d8] bevel-out shadow-2xl">
