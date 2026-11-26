@@ -12,4 +12,4 @@ For a fresh Supabase project apply supabase/schema.sql, buddies.sql, trade_match
 Profiles include a screen name, joined date, HTTPS avatar URL and Now Spinning status. Buddy activity reflects a visible site tab within the past two minutes. Public visitors can read forum threads and replies. Members can post to crates, start blind rating threads, import Discogs releases, scan barcodes, manage a shelf and wantlist, and match exact releases for trade with accepted buddies. The listening party and visual player in the original interface are prototype features.
 
 ## Deployment
-Import this source into a GitHub repository and connect the Vercel Spindle project for automatic deployments. Use the Vite preset. The current site was deployed directly from source.
+The production site is https://spindle-seven.vercel.app. The Vercel project is spindle, with the Vite preset. Production source is on the main branch of justjckvv/spindle.
