@@ -88,7 +88,9 @@ export default function Auth() {
       } else {
         const {data,error} = await db.auth.signUp({email:address,password,options});
         if (error) {
-          if (/database error saving new user|already registered/i.test(error.message)) {
+          if (/database error saving new user/i.test(error.message)) {
+            setMessage('Spindle couldn’t finish creating your account. Please try signing up again in a few minutes.');
+          } else if (/already registered/i.test(error.message)) {
             switchMode('confirm');
             setMessage('An earlier signup may already exist. Open your confirmation email or sign in if you already confirmed.');
           } else throw error;
