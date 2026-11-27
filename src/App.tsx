@@ -1,3 +1,4 @@
+import CollectionExport from './CollectionExport';
 import Profile from "./Profile";
 import Wantlist from './Wantlist';
 import Messenger from './Messenger';
@@ -905,6 +906,7 @@ export default function App({account=null,onProfileSave}:any) {
               <label>Search shelf<input type="search" className="block bg-white bevel-in px-2 py-1" placeholder="Artist, album or pressing" value={shelfQuery} onChange={e=>{setShelfQuery(e.target.value);setBinderPage(0)}}/></label>
               <label>Format<select className="block bg-white bevel-in px-2 py-1" value={shelfFormat} onChange={e=>{setShelfFormat(e.target.value);setBinderPage(0)}}><option value="">All formats</option>{formats.map(format=><option key={format}>{format}</option>)}</select></label>
               <label><input type="checkbox" checked={tradeOnly} onChange={e=>{setTradeOnly(e.target.checked);setBinderPage(0)}}/> Open to trade only</label>
+              <CollectionExport kind="shelf" userId={account?.id} items={shelf}/>
               <span role="status">{visibleShelf.length} of {shelf.length} copies</span>
               {(shelfQuery || shelfFormat || tradeOnly) && <button className="bevel-btn px-2" onClick={()=>{setShelfQuery('');setShelfFormat('');setTradeOnly(false);setBinderPage(0)}}>Clear filters</button>}
             </section>

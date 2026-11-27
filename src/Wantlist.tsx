@@ -1,3 +1,4 @@
+import CollectionExport from './CollectionExport';
 import React,{useEffect,useState} from 'react';
 import DiscogsLookup from './DiscogsLookup';
 import {db} from './backend';
@@ -78,7 +79,8 @@ export default function Wantlist({userId,items,setItems,offers,onMessage}){
   }
   return <section className="grid md:grid-cols-2 gap-4 text-sm">
     <div className="bg-[#f4f1ea] bevel-out p-4"><h2 className="font-bold text-lg">My wantlist</h2>
-      {loading?<p>Loading your records…</p>:!items.length&&<p>Your wantlist is empty. Add a pressing you’re looking for.</p>}
+      <CollectionExport kind="wantlist" userId={userId} items={items}/>
+              {loading?<p>Loading your records…</p>:!items.length&&<p>Your wantlist is empty. Add a pressing you’re looking for.</p>}
       {matchError&&<p role="alert">{matchError}</p>}<ul>{items.map(item=><li key={item.id} className="border-b py-3">
         <strong>{item.artist} — {item.title}</strong><p>{[item.format,item.pressing,item.budget!==''&&item.budget!=null?'Budget: $'+item.budget:null].filter(Boolean).join(' · ')}</p>
         {item.discogsId&&<a className="underline mr-3" target="_blank" rel="noreferrer" href={'https://www.discogs.com/release/'+item.discogsId}>Discogs pressing</a>}
