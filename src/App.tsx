@@ -509,7 +509,10 @@ export default function App({account=null,onProfileSave}:any) {
       setEditingCopy(null);triggerToast('Copy details saved.');
     }catch(error){setCopyError(error.message)}finally{setCopyBusy(false)}
   }
-  const [tradePeer,setTradePeer]=useState(null);
+  const [tradeChat,setTradeChat]=useState(null);
+  useEffect(()=>{
+    if(activeView !== 'aim') setTradeChat(null);
+  },[activeView]);
   async function toggleTrade(item){
     const updated={...item,openToTrade:!item.openToTrade};
     const {error}=await db.from('shelf_items').update({open_to_trade:updated.openToTrade,payload:updated}).eq('id',item.id).eq('user_id',account.id).select('id').single();
@@ -1001,7 +1004,7 @@ export default function App({account=null,onProfileSave}:any) {
         {/* ================================================================
             VIEW 3: WANTLIST & TRADES
         ================================================================ */}
-        {activeView === 'trade' && account && <Wantlist userId={account.id} items={wantlist} setItems={setWantlist} onMessage={id=>{setTradePeer(id);setActiveView('aim')}}/>}
+        {activeView === 'trade' && account && <Wantlist userId={account.id} items={wantlist} setItems={setWantlist} offers={shelf.filter(copy=>copy.openToTrade)} onMessage={(peer,draft)=>{setTradeChat({peer,draft});setActiveView('aim')}}/>}
         {activeView === 'trade' && !account && (
           <div className="space-y-4">
             <div className="bg-[#f4f1ea] border border-[#627d98] p-4 shadow-sm">
@@ -1151,7 +1154,7 @@ export default function App({account=null,onProfileSave}:any) {
         {/* ================================================================
             VIEW 6: AIM FRIENDS & IM CHAT
         ================================================================ */}
-        {activeView === 'aim' && account && <Messenger me={account.id} initialPeer={tradePeer}/>}
+        {activeView === 'aim' && account && <Messenger me={account.id} tradeChat={tradeChat}/>}
         {activeView === 'aim' && !account && (
           <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
             {/* Buddy List Sidebar */}

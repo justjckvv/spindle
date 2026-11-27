@@ -3,7 +3,29 @@ import DiscogsLookup from './DiscogsLookup';
 import {db} from './backend';
 
 const blank={artist:'',title:'',format:'CD',pressing:'',budget:'',discogsId:null};
-export default function Wantlist({userId,items,setItems,onMessage}){
+function TradeMatch({match, wanted, offers, onMessage}) {
+  const [offerId, setOfferId] = useState('');
+  const offer = offers.find(copy => copy.id === offerId);
+  function compose() {
+    const pressing = [wanted.format, match.item_condition, 'Discogs r' + wanted.discogsId].filter(Boolean).join(', ');
+    const request = `Hi @${match.screen_name}, is your copy of ${wanted.artist} — ${wanted.title} (${pressing}) still available to trade?`;
+    const details = offer && [offer.format, offer.condition, offer.discogsId && 'Discogs r' + offer.discogsId].filter(Boolean).join(', ');
+    const proposal = offer ? ` I can offer ${offer.artist} — ${offer.title}${details ? ' (' + details + ')' : ''}.` : '';
+    onMessage(match.buddy_id, request + proposal);
+  }
+  return <div className="my-2 bg-[#e6ecf2] p-2 space-y-2">
+    <p>@{match.screen_name} has this pressing open to trade {match.item_condition && ('· '+match.item_condition)}</p>
+    {offers.length > 0 && <label className="block">Offer a copy from your shelf
+      <select className="block w-full bevel-in bg-white p-1" value={offer?.id || ''} onChange={e => setOfferId(e.target.value)}>
+        <option value="">Ask about availability only</option>
+        {offers.map(copy => <option key={copy.id} value={copy.id}>{[copy.artist, copy.title, copy.format, copy.condition, copy.pressing].filter(Boolean).join(' · ')}</option>)}
+      </select>
+    </label>}
+    <button type="button" className="bevel-btn px-2" onClick={compose}>Draft trade message</button>
+  </div>;
+}
+
+export default function Wantlist({userId,items,setItems,offers,onMessage}){
   const [draft,setDraft]=useState(blank);
   const [message,setMessage]=useState('');
   const [busy,setBusy]=useState(false);
@@ -60,7 +82,7 @@ export default function Wantlist({userId,items,setItems,onMessage}){
       {matchError&&<p role="alert">{matchError}</p>}<ul>{items.map(item=><li key={item.id} className="border-b py-3">
         <strong>{item.artist} — {item.title}</strong><p>{[item.format,item.pressing,item.budget!==''&&item.budget!=null?'Budget: $'+item.budget:null].filter(Boolean).join(' · ')}</p>
         {item.discogsId&&<a className="underline mr-3" target="_blank" rel="noreferrer" href={'https://www.discogs.com/release/'+item.discogsId}>Discogs pressing</a>}
-        {matches.filter(m=>m.wanted_id===item.id).map(m=><div className="my-2 bg-[#e6ecf2] p-2" key={m.shelf_id}>@{m.screen_name} has this pressing open to trade {m.item_condition && ('· '+m.item_condition)} <button className="bevel-btn px-2" onClick={()=>onMessage(m.buddy_id)}>Message buddy</button></div>)}
+        {matches.filter(m=>m.wanted_id===item.id).map(m=><TradeMatch key={m.shelf_id} match={m} wanted={item} offers={offers} onMessage={onMessage}/>)}
         <button className="underline" disabled={busy} onClick={()=>remove(item.id)}>Remove</button></li>)}</ul></div>
     <form className="bg-[#ece9d8] bevel-out p-4 space-y-3" onSubmit={save}><h3 className="font-bold">Add a wanted release</h3>
       <DiscogsLookup onImport={data=>setDraft(prev=>({...prev,artist:data.artist,title:data.title,format:data.format,pressing:data.pressing,discogsId:data.discogsId}))}/>

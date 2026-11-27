@@ -1,8 +1,8 @@
 import React, {useState,useEffect} from 'react';
 import {db} from './backend';
 
-function Conversation({me,peer}) {
-  const [rows,setRows]=useState([]), [draft,setDraft]=useState(''), [error,setError]=useState(''), [busy,setBusy]=useState(false);
+function Conversation({me,peer,initialDraft}) {
+  const [rows,setRows]=useState([]), [draft,setDraft]=useState(initialDraft), [error,setError]=useState(''), [busy,setBusy]=useState(false);
   useEffect(()=>{
     let active=true, version=0;
     async function refresh(){
@@ -33,8 +33,9 @@ function Conversation({me,peer}) {
     <form onSubmit={send} className="flex gap-2"><input aria-label="Private message" placeholder="Write an IM…" maxLength={4000} value={draft} disabled={busy} onChange={e=>setDraft(e.target.value)} className="bevel-in bg-white min-w-0 flex-1 p-2"/><button disabled={busy||!draft.trim()} className="bevel-btn px-3">Send IM</button></form>{error&&<p role="alert">{error}</p>}</section>
 }
 
-export default function Messenger({me,initialPeer=null}){
-  const [links,setLinks]=useState([]),[peer,setPeer]=useState(initialPeer),[term,setTerm]=useState(''),[result,setResult]=useState(null),[notice,setNotice]=useState(''),[tick,setTick]=useState(0);
+export default function Messenger({me,tradeChat=null}){
+  const [links,setLinks]=useState([]),[peer,setPeer]=useState(tradeChat?.peer),[term,setTerm]=useState(''),[result,setResult]=useState(null),[notice,setNotice]=useState(''),[tick,setTick]=useState(0);
+  const [tradeDraft,setTradeDraft]=useState(tradeChat?.draft || '');
   useEffect(()=>{
     let active=true,version=0;
     async function refresh(){
@@ -66,8 +67,8 @@ export default function Messenger({me,initialPeer=null}){
     {result&&<p>@{result.username} <button className="bevel-btn px-2" disabled={buddies.some(b=>b.person.id===result.id)} onClick={()=>change(db.from('buddies').insert({requester:me,recipient:result.id}))}>Add buddy</button></p>}
     {notice&&<p role="status">{notice}</p>}<ul className="bg-white bevel-in p-2">{buddies.map(b=><li className="py-2 border-b" key={b.id}>
       {b.accepted && <div>{b.person.avatar_url && <img src={b.person.avatar_url} alt="" className="w-8 h-8 inline object-cover" referrerPolicy="no-referrer"/>} <small>{Date.now()-Date.parse(b.person.last_active_at)<120000?"Online":"Offline"}</small>{b.person.now_spinning && <p>Now spinning: {b.person.now_spinning}</p>}</div>}
-      {b.accepted?<button className="text-blue-800 underline" onClick={()=>setPeer(b.person.id)}>Message @{b.person.username}</button>:<><b>@{b.person.username}</b> {b.recipient===me?<button className="bevel-btn px-2" onClick={()=>change(db.from('buddies').update({accepted:true}).eq('id',b.id))}>Accept</button>:'Request sent'}</>}
+      {b.accepted?<button className="text-blue-800 underline" onClick={()=>{if(peer!==b.person.id)setTradeDraft('');setPeer(b.person.id)}}>Message @{b.person.username}</button>:<><b>@{b.person.username}</b> {b.recipient===me?<button className="bevel-btn px-2" onClick={()=>change(db.from('buddies').update({accepted:true}).eq('id',b.id))}>Accept</button>:'Request sent'}</>}
       <button className="text-xs ml-2 underline" onClick={()=>change(db.from('buddies').delete().eq('id',b.id))}>{b.accepted?'Remove':b.recipient===me?'Decline':'Cancel request'}</button></li>)}
       {!buddies.length&&<li>Find a member by screen name to add your first buddy.</li>}</ul></aside>
-    {selected?<Conversation key={selected.person.id} me={me} peer={selected.person}/>:<section className="bg-white bevel-in p-4">Select an accepted buddy to open a private conversation.</section>}</div>
+    {selected?<Conversation key={selected.person.id} me={me} peer={selected.person} initialDraft={tradeDraft}/>:<section className="bg-white bevel-in p-4">Select an accepted buddy to open a private conversation.</section>}</div>
 }
