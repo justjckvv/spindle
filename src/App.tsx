@@ -613,8 +613,20 @@ export default function App({account=null,onProfileSave}:any) {
   const activeAimFriend = friends.find((f) => f.id === activeAimFriendId) || friends[0];
   const activeRelease = releases[selectedReleaseId] || releases['rel-loveless'];
 
-  const binderSlots = shelf.slice(binderPage * 4, binderPage * 4 + 4);
-  const totalBinderPages = Math.max(1, Math.ceil(shelf.length / 4));
+  const [shelfQuery, setShelfQuery] = useState('');
+  const [shelfFormat, setShelfFormat] = useState('');
+  const [tradeOnly, setTradeOnly] = useState(false);
+  const formats = [...new Set(shelf.map(item=>item.format).filter(Boolean))].sort();
+  const terms = shelfQuery.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  const visibleShelf = shelf.filter(item=>{
+    if (shelfFormat && item.format !== shelfFormat) return false;
+    if (tradeOnly && !item.openToTrade) return false;
+    const searchable = [item.artist,item.title,item.pressing,item.discogsId].join(' ').toLowerCase();
+    return terms.every(term=>searchable.includes(term));
+  });
+  const totalBinderPages = Math.max(1, Math.ceil(visibleShelf.length / 4));
+  const pageIndex = Math.min(binderPage,totalBinderPages-1);
+  const binderSlots = visibleShelf.slice(pageIndex * 4, (pageIndex + 1) * 4);
 
   return (
     <div
@@ -886,10 +898,18 @@ export default function App({account=null,onProfileSave}:any) {
               </div>
             </div>
 
+            <section aria-label="Shelf filters" className="flex flex-wrap items-end gap-3 bg-[#e6ecf2] bevel-out p-3 text-sm">
+              <label>Search shelf<input type="search" className="block bg-white bevel-in px-2 py-1" placeholder="Artist, album or pressing" value={shelfQuery} onChange={e=>{setShelfQuery(e.target.value);setBinderPage(0)}}/></label>
+              <label>Format<select className="block bg-white bevel-in px-2 py-1" value={shelfFormat} onChange={e=>{setShelfFormat(e.target.value);setBinderPage(0)}}><option value="">All formats</option>{formats.map(format=><option key={format}>{format}</option>)}</select></label>
+              <label><input type="checkbox" checked={tradeOnly} onChange={e=>{setTradeOnly(e.target.checked);setBinderPage(0)}}/> Open to trade only</label>
+              <span role="status">{visibleShelf.length} of {shelf.length} copies</span>
+              {(shelfQuery || shelfFormat || tradeOnly) && <button className="bevel-btn px-2" onClick={()=>{setShelfQuery('');setShelfFormat('');setTradeOnly(false);setBinderPage(0)}}>Clear filters</button>}
+            </section>
+            {!visibleShelf.length && <p>{shelf.length?'No copies match these filters.':'Your shelf is empty. Select Add CD to catalog your first copy.'}</p>}
             {/* JEWEL CASE VIEW */}
             {shelfViewMode === 'jewel' && (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {shelf.map((item) => (
+                {visibleShelf.map((item) => (
                   <div key={item.id} className="group bg-[#f4f1ea] border border-[#627d98] p-4 flex gap-4 shadow-sm hover:bg-white transition">
                     <div onClick={() => { if(item.discogsId){window.open('https://www.discogs.com/release/'+item.discogsId,'_blank','noopener');return;} setSelectedReleaseId(item.releaseId); setActiveView('release'); }} className="cursor-pointer">
                       {item.cover?<img src={item.cover} alt={item.title} width="80" height="80"/>:<JewelCaseArtwork seed={item.seed} size="md" format={item.format} />}
@@ -935,22 +955,22 @@ export default function App({account=null,onProfileSave}:any) {
             )}
 
             {/* ZIP BINDER VIEW */}
-            {shelfViewMode === 'binder' && (
+            {shelfViewMode === 'binder' && visibleShelf.length>0 && (
               <div className="bg-[#27272a] border-4 border-[#18181b] rounded-lg p-5 shadow-xl">
                 <div className="flex items-center justify-between text-white pb-3 mb-4 border-b-2 border-dashed border-[#52525b]">
                   <span className="px-2.5 py-1 bg-[#f59e0b] text-black font-mono text-xs font-bold">
-                    64-CD NYLON BINDER POCKETS (Page {binderPage + 1} of {totalBinderPages})
+                    64-CD NYLON BINDER POCKETS (Page {pageIndex + 1} of {totalBinderPages})
                   </span>
                   <div className="flex gap-2">
                     <button
-                      disabled={binderPage === 0}
+                      disabled={pageIndex === 0}
                       onClick={() => setBinderPage((p) => Math.max(0, p - 1))}
                       className="bevel-btn px-3 py-1 text-xs font-bold text-black disabled:opacity-40 cursor-pointer"
                     >
                       Prev
                     </button>
                     <button
-                      disabled={binderPage + 1 >= totalBinderPages}
+                      disabled={pageIndex + 1 >= totalBinderPages}
                       onClick={() => setBinderPage((p) => Math.min(totalBinderPages - 1, p + 1))}
                       className="bevel-btn px-3 py-1 text-xs font-bold text-black disabled:opacity-40 cursor-pointer"
                     >
@@ -962,7 +982,7 @@ export default function App({account=null,onProfileSave}:any) {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {binderSlots.map((disc) => (
                     <div key={disc.id} className="bg-[#3f3f46] border border-[#71717a] rounded-md p-3 flex items-center gap-3">
-                      <div onClick={() => { setSelectedReleaseId(disc.releaseId); setActiveView('release'); }} className="cursor-pointer">
+                      <div onClick={() => { openCopy(disc); }} className="cursor-pointer">
                         <JewelCaseArtwork seed={disc.seed} size="md" binderMode={true} format={disc.format} />
                       </div>
                       <div className="min-w-0 flex-1 text-white">
