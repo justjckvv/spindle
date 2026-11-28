@@ -3,15 +3,24 @@ import Scanner from "./Scanner";
 export default function DiscogsLookup({onImport}) {
   const [mode,setMode]=useState('id'),[query,setQuery]=useState(''),[results,setResults]=useState([]),[message,setMessage]=useState(''),[busy,setBusy]=useState(false);
   const [camera,setCamera]=useState(false);
-  async function lookup(id?,barcode?) {
-    setBusy(true);setMessage('');setResults([]);
+  const [format,setFormat]=useState(''),[country,setCountry]=useState(''),[nextPage,setNextPage]=useState(null);
+  function clearResults(){setResults([]);setNextPage(null);setMessage('')}
+  async function lookup(id?,barcode?,page=1) {
+    setBusy(true);setMessage('');
+    if(!id && page===1) clearResults();
     try {
       const params=id?{id:String(id)}:{kind:barcode?"barcode":mode,q:barcode||query.trim()};
-      const response=await fetch('/api/discogs?'+new URLSearchParams(params));
+      const searchParams=new URLSearchParams(params);
+      if(!id){
+        searchParams.set('page',String(page));
+        if(!barcode && format)searchParams.set('format',format);
+        if(!barcode && country.trim())searchParams.set('country',country.trim());
+      }
+      const response=await fetch('/api/discogs?'+searchParams);
       const data=await response.json();
       if(!response.ok) throw Error(data.error||'Lookup failed.');
-      if(data.results){setResults(data.results);if(!data.results.length)setMessage('No matching releases.');}
-      else {onImport(data);setMessage('Imported from Discogs. Review the pressing before saving.');}
+      if(data.results){setResults(previous=>page===1?data.results:[...new Map([...previous,...data.results].map(result=>[result.id,result])).values()]);setNextPage(data.nextPage);if(page===1 && !data.results.length)setMessage('No matching releases.');}
+      else {clearResults();onImport(data);setMessage('Imported from Discogs. Review the pressing before saving.');}
     }catch(error){setMessage(error.message)}finally{setBusy(false)}
   }
   function search(){
@@ -22,9 +31,16 @@ export default function DiscogsLookup({onImport}) {
     setMessage('Enter a Discogs release ID, r-number or release URL.');
   }
   return <fieldset disabled={busy} className="bg-white bevel-in p-3 space-y-2"><legend className="font-bold">Import from Discogs</legend>
-    <select aria-label="Lookup type" value={mode} onChange={e=>{setMode(e.target.value);setQuery('');setResults([]);setMessage('')}}><option value="text">Artist or album</option><option value="id">Release ID or link</option><option value="barcode">Barcode</option><option value="catno">Catalog number</option></select>
+    <select aria-label="Lookup type" value={mode} onChange={e=>{setMode(e.target.value);setQuery('');clearResults()}}><option value="text">Artist or album</option><option value="id">Release ID or link</option><option value="barcode">Barcode</option><option value="catno">Catalog number</option></select>
     <button type="button" className="bevel-btn p-1" onClick={()=>setCamera(true)}>Scan barcode</button>
-    {camera&&<Scanner onClose={()=>setCamera(false)} onCode={code=>{setCamera(false);setMode("barcode");setQuery(code);lookup(undefined,code)}}/>}
-    <div className="flex gap-2"><input aria-label="Discogs lookup" placeholder={mode==='text'?'e.g. Radiohead OK Computer':undefined} className="border px-2 min-w-0 flex-1" value={query} onChange={e=>{setQuery(e.target.value);setResults([]);setMessage('')}} onKeyDown={e=>{if(e.key==='Enter'){e.preventDefault();search()}}}/><button type="button" className="bevel-btn p-1" onClick={search}>{busy?'Loading…':'Look up'}</button></div>
-    <p role="status">{message}</p>{results.map(r=><button type="button" key={r.id} className="block text-left underline" onClick={()=>lookup(r.id)}>{[r.title, r.year, r.country, r.format?.join(', '), r.catalogNumber, 'r'+r.id].filter(Boolean).join(' · ')}</button>)}</fieldset>
+    {mode!=='id' && <div className="flex flex-wrap gap-2">
+      <label>Format <select value={format} onChange={e=>{setFormat(e.target.value);clearResults()}}>
+        <option value="">All formats</option>{['CD','Vinyl','Cassette'].map(value=><option key={value}>{value}</option>)}
+      </select></label>
+      <label>Release country <input className="border px-2" value={country} maxLength={80} placeholder="e.g. UK" onChange={e=>{setCountry(e.target.value);clearResults()}} onKeyDown={e=>{if(e.key==='Enter'){e.preventDefault();search()}}}/></label>
+    </div>}
+    {camera&&<Scanner onClose={()=>setCamera(false)} onCode={code=>{setCamera(false);setMode("barcode");setFormat("");setCountry("");setQuery(code);lookup(undefined,code)}}/>}
+    <div className="flex gap-2"><input aria-label="Discogs lookup" placeholder={mode==='text'?'e.g. Radiohead OK Computer':undefined} className="border px-2 min-w-0 flex-1" value={query} onChange={e=>{setQuery(e.target.value);clearResults()}} onKeyDown={e=>{if(e.key==='Enter'){e.preventDefault();search()}}}/><button type="button" className="bevel-btn p-1" onClick={search}>{busy?'Loading…':'Look up'}</button></div>
+    <p role="status">{message}</p>{results.map(r=><button type="button" key={r.id} className="block text-left underline" onClick={()=>lookup(r.id)}>{[r.title, r.year, r.country, r.format?.join(', '), r.catalogNumber, 'r'+r.id].filter(Boolean).join(' · ')}</button>)}
+    {nextPage && <button type="button" className="bevel-btn px-2" onClick={()=>lookup(undefined,undefined,nextPage)}>Show more pressings</button>}</fieldset>
 }
