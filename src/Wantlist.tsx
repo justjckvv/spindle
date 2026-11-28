@@ -1,3 +1,4 @@
+import {BarcodeCheck} from './CollectorTools';
 import CollectionExport from './CollectionExport';
 import React,{useEffect,useState} from 'react';
 import DiscogsLookup from './DiscogsLookup';
@@ -79,6 +80,7 @@ export default function Wantlist({userId,items,setItems,offers,onMessage}){
   }
   return <section className="grid md:grid-cols-2 gap-4 text-sm">
     <div className="bg-[#f4f1ea] bevel-out p-4"><h2 className="font-bold text-lg">My wantlist</h2>
+      <BarcodeCheck/>
       <CollectionExport kind="wantlist" userId={userId} items={items}/>
               {loading?<p>Loading your records…</p>:!items.length&&<p>Your wantlist is empty. Add a pressing you’re looking for.</p>}
       {matchError&&<p role="alert">{matchError}</p>}<ul>{items.map(item=><li key={item.id} className="border-b py-3">

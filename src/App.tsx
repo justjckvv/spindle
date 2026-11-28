@@ -1,3 +1,6 @@
+import {RetroPlayer,retroSound} from './Retro';
+import ListeningRoom from './ListeningRoom';
+import {Burns,MatrixDirectory} from './CollectorTools';
 import CollectionExport from './CollectionExport';
 import Profile from "./Profile";
 import Wantlist from './Wantlist';
@@ -528,13 +531,20 @@ export default function App({account=null,onProfileSave}:any) {
     heartbeat(); const timer=setInterval(heartbeat,60000);
     return ()=>clearInterval(timer);
   },[account?.id]);
+  async function createCrate(event){
+    event.preventDefault(); const form=event.currentTarget, fields=new FormData(form);
+    const about=String(fields.get('description')).trim();
+    const {data:id,error}=await db.rpc('create_collector_crate',{slug:String(fields.get('slug')).trim(),about});
+    if(error){triggerToast(error.message);return}
+    setCrateRows(rows=>[...rows,{id,name:id,description:about}]);setSelectedCrate(id);setPostForm(p=>({...p,crate:id}));form.reset();
+  }
   const crates=crateRows.map(c=>({...c,posts:posts.filter(p=>c.id==='all'||p.crate===c.id).length}));
   const addShelfItem=async(item)=>{
     if(db&&account){
       const {error}=await db.from('shelf_items').insert({id:item.id,user_id:account.id,artist:item.artist,album:item.title,format:item.format,condition:item.condition,open_to_trade:item.openToTrade,payload:item});
       if(error){triggerToast(error.message);return false}
     }
-    setShelf(prev=>[item,...prev.filter(p=>p.id!==item.id)]);return true;
+    retroSound('tray');setShelf(prev=>[item,...prev.filter(p=>p.id!==item.id)]);return true;
   };
   const handleCreatePost = async (e) => {
     e.preventDefault();
@@ -564,7 +574,7 @@ export default function App({account=null,onProfileSave}:any) {
       const {error}=await db.from('threads').insert({id:newPost.id,user_id:account.id,crate:newPost.crate,title:newPost.title,body:newPost.body,payload:newPost});
       if(error){triggerToast(error.message);return}
     }
-    setPosts(prev=>[newPost,...prev.filter(p=>p.id!==newPost.id)]);
+    retroSound('post');setPosts(prev=>[newPost,...prev.filter(p=>p.id!==newPost.id)]);
     setShowNewPostModal(false);
     setPostForm({ crate: 'c/Albums', title: '', body: '', releaseId: 'rel-loveless' });
     setActiveView('feed');
@@ -660,7 +670,7 @@ export default function App({account=null,onProfileSave}:any) {
           </div>
           <div className="flex items-center gap-3 font-mono">
             {account ? <button onClick={()=>db.auth.signOut()} className="underline">Sign out</button> : <span>Demo mode • local data</span>}
-            <button onClick={()=>setActiveView("profile")} className="underline">Profile · @{currentUser.username}</button>
+            <button onClick={()=>setActiveView("profile")} className="underline">Profile · @{currentUser.username}</button> {account?.away_message && <span>{account.away_message}</span>}
             <button
               onClick={() => setActiveView('aim')}
               className="text-[#7dd3fc] underline font-bold cursor-pointer"
@@ -700,22 +710,7 @@ export default function App({account=null,onProfileSave}:any) {
             </button>
           </div>
 
-          {/* Winamp 2.91 Player */}
-          <div className="bg-[#23272e] text-[#00ff41] bevel-out p-1.5 flex items-center gap-2 w-full md:w-auto">
-            <span className="text-[10px] font-mono font-bold text-[#cbd5e1] px-1">WINAMP</span>
-            <div className="bg-[#090d0a] bevel-in px-2 py-1 flex items-center gap-2 w-56 sm:w-72 overflow-hidden">
-              <span className="w-2 h-2 rounded-full bg-[#00ff41] animate-pulse shrink-0" />
-              <div className="winamp-marquee font-mono text-[11px] text-[#00ff41]">
-                *** NOW SPINNING: {winampTrack.title} ***
-              </div>
-            </div>
-            <button
-              onClick={() => setWinampTrack((p) => ({ ...p, playing: !p.playing }))}
-              className="bevel-btn px-2 py-1 text-black text-xs font-bold"
-            >
-              {winampTrack.playing ? <Pause className="w-3 h-3" /> : <Play className="w-3 h-3" />}
-            </button>
-          </div>
+          <RetroPlayer track={winampTrack} me={account?.id} toggle={()=>setWinampTrack(p=>({...p,playing:!p.playing}))}/>
 
           <button
             onClick={() => setShowAddModal(true)}
@@ -807,6 +802,10 @@ export default function App({account=null,onProfileSave}:any) {
               </div>
             </div>
 
+            {account && <details className="text-sm"><summary>Create a crate</summary><form className="flex flex-wrap gap-2 p-2" onSubmit={createCrate}>
+              <label>c/ <input name="slug" required pattern="[A-Za-z][A-Za-z0-9]{1,30}" placeholder="Crate name"/></label>
+              <label>Description <input name="description" required maxLength={160}/></label><button className="bevel-btn px-2">Create crate</button>
+            </form></details>}
             {/* Crate Quick Pills */}
             <div className="flex flex-wrap gap-2">
               {crates.map((crate) => (
@@ -856,6 +855,7 @@ export default function App({account=null,onProfileSave}:any) {
                       )}
                     </div>
                   </div>
+                {account && <Burns thread={post.id} me={account.id}/>}
                 {account && <Replies threadId={post.id} userId={account.id}/>}
                 </article>
               ))}
@@ -910,6 +910,7 @@ export default function App({account=null,onProfileSave}:any) {
               <span role="status">{visibleShelf.length} of {shelf.length} copies</span>
               {(shelfQuery || shelfFormat || tradeOnly) && <button className="bevel-btn px-2" onClick={()=>{setShelfQuery('');setShelfFormat('');setTradeOnly(false);setBinderPage(0)}}>Clear filters</button>}
             </section>
+            {account && <MatrixDirectory/>}
             {!visibleShelf.length && <p>{shelf.length?'No copies match these filters.':'Your shelf is empty. Select Add CD to catalog your first copy.'}</p>}
             {/* JEWEL CASE VIEW */}
             {shelfViewMode === 'jewel' && (
@@ -933,7 +934,7 @@ export default function App({account=null,onProfileSave}:any) {
                           </span>
                         </div>
                         <div className="text-xs font-bold text-[#334e68]">{item.artist} ({item.year})</div>
-                        <div className="mt-1 text-[10px] font-mono bg-[#e6ecf2] border border-[#bcccdc] px-1 py-0.5 text-[#102a43] truncate">
+                        <div tabIndex={0} className="rack-spine mt-1 text-[10px] font-mono bg-[#e6ecf2] border px-1"><div className="rack-preview">{item.cover?<img width="100" src={item.cover} alt=""/>:<JewelCaseArtwork seed={item.seed} size="md" format={item.format}/>} {item.artist} — {item.title} · {item.pressing}</div>
                           {item.pressing}
                         </div>
                       </div>
@@ -984,11 +985,11 @@ export default function App({account=null,onProfileSave}:any) {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div key={pageIndex} className="sleeve-page grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {binderSlots.map((disc) => (
                     <div key={disc.id} className="bg-[#3f3f46] border border-[#71717a] rounded-md p-3 flex items-center gap-3">
                       <div onClick={() => { openCopy(disc); }} className="cursor-pointer">
-                        <JewelCaseArtwork seed={disc.seed} size="md" binderMode={true} format={disc.format} />
+                        {disc.cover?<img width="80" height="80" src={disc.cover} alt={disc.title}/>:<JewelCaseArtwork seed={disc.seed} size="md" binderMode={true} format={disc.format} />}
                       </div>
                       <div className="min-w-0 flex-1 text-white">
                         <div className="text-xs font-bold text-[#fde047] truncate">{disc.title}</div>
@@ -1125,7 +1126,8 @@ export default function App({account=null,onProfileSave}:any) {
         {/* ================================================================
             VIEW 5: LISTENING PARTY ROOM
         ================================================================ */}
-        {activeView === 'room' && (
+        {activeView === 'room' && account && <ListeningRoom me={account.id}/>}
+        {activeView === 'room' && !account && (
           <div className="space-y-4">
             <div className="bg-[#f4f1ea] border border-[#627d98] p-4 shadow-sm">
               <h2 className="text-lg font-black text-[#102a43]">Synchronized Album Listening Party Room</h2>
@@ -1234,6 +1236,7 @@ export default function App({account=null,onProfileSave}:any) {
       {editingCopy && <dialog open aria-label="Copy details" className="fixed inset-0 z-50 m-auto w-[min(92vw,30rem)] max-h-[85vh] overflow-auto bg-[#ece9d8] bevel-out shadow-xl p-4">
         <h2 className="font-bold">{editingCopy.original.artist} — {editingCopy.original.title}</h2>
         <p className="text-sm">{editingCopy.original.format} · {editingCopy.original.pressing}</p>
+        {account && editingCopy.original.discogsId && <MatrixDirectory key={editingCopy.original.discogsId} releaseId={editingCopy.original.discogsId}/>}
         {editingCopy.original.tracks?.length>0 && <details className="my-2"><summary>Tracklist ({editingCopy.original.tracks.length})</summary><ol>{editingCopy.original.tracks.map((t,i)=><li key={i}>{t.position} {t.title} {t.duration}</li>)}</ol></details>}
         <form onSubmit={saveCopy} className="space-y-3 mt-3">
           <label className="block">Condition <select value={editingCopy.condition} onChange={e=>setEditingCopy({...editingCopy,condition:e.target.value})}>{["M","NM","VG+","VG","G+","G","F","P"].map(v=><option key={v}>{v}</option>)}</select></label>

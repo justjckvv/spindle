@@ -1,3 +1,4 @@
+import {retroSound} from './Retro';
 import React, {useEffect, useState} from 'react';
 import {db} from './backend';
 
@@ -35,7 +36,7 @@ export default function Replies({threadId, userId}) {
       const result = await db.from('comments').insert({thread_id:threadId,user_id:userId,body:draft.trim()}).select(fields).single();
       if(result.error) throw result.error;
       setRows(previous=>previous.some(row=>row.id===result.data.id)?previous:[...previous,result.data]);
-      setDraft('');
+      retroSound('post');setDraft('');
     } catch(e) { setError(e.message); }
     finally { setSending(false); }
   }

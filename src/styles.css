@@ -1,1 +1,10 @@
 @import 'tailwindcss';
+
+.retro-panel{display:flex;align-items:center;flex-wrap:wrap;gap:.4rem;padding:.4rem;background:linear-gradient(#47495b,#232434);color:#eee;border:2px outset #889;font:11px monospace}
+.skin-metallic{background:linear-gradient(#e3e4e7,#898f98,#d5d6d8);color:#141927}.skin-dark{background:#111820;color:#99d8ee}
+.retro-display{background:#07110a;color:#85fe67;padding:.25rem;max-width:14rem;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.retro-panel select,.retro-panel button{color:#182432;background:#d4d6d8;border:1px outset #eee;padding:2px}
+.retro-vis{width:55px;height:22px;background:#0b1114;color:#85fe67;fill:currentColor}.skin-dark .retro-vis{color:#84efff}
+.sleeve-page{transform-origin:left center}.rack-spine{position:relative}.rack-preview{display:none;position:absolute;left:0;bottom:100%;z-index:5;padding:.5rem;min-width:8rem;background:#152330;color:white;box-shadow:0 4px 14px #0006}.rack-spine:hover .rack-preview,.rack-spine:focus-within .rack-preview{display:block}
+@media(prefers-reduced-motion:no-preference){.animating rect{transform-origin:center bottom;animation:meter .58s ease-in-out infinite alternate}.animating .scope{animation:meter .28s ease-in-out infinite alternate;transform-origin:center}.sleeve-page{animation:sleeve .38s ease-out}.floating-note{animation:floatnote 2s ease-out both}}
+@keyframes meter{to{transform:scaleY(.35)}}@keyframes sleeve{from{transform:perspective(800px) rotateY(-24deg);opacity:.45}}@keyframes floatnote{to{transform:translateY(-32px);opacity:0}}
