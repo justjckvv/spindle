@@ -82,13 +82,13 @@ export default function Wantlist({userId,items,setItems,offers,onMessage}){
       <CollectionExport kind="wantlist" userId={userId} items={items}/>
               {loading?<p>Loading your records…</p>:!items.length&&<p>Your wantlist is empty. Add a pressing you’re looking for.</p>}
       {matchError&&<p role="alert">{matchError}</p>}<ul>{items.map(item=><li key={item.id} className="border-b py-3">
-        <strong>{item.artist} — {item.title}</strong><p>{[item.format,item.pressing,item.budget!==''&&item.budget!=null?'Budget: $'+item.budget:null].filter(Boolean).join(' · ')}</p>
+        <strong>{item.artist} — {item.title}</strong><p>{[item.format,item.pressing,...(item.genres||[]),item.budget!==''&&item.budget!=null?'Budget: $'+item.budget:null].filter(Boolean).join(' · ')}</p>
         {item.discogsId&&<a className="underline mr-3" target="_blank" rel="noreferrer" href={'https://www.discogs.com/release/'+item.discogsId}>Discogs pressing</a>}
         {matches.filter(m=>m.wanted_id===item.id).map(m=><TradeMatch key={m.shelf_id} match={m} wanted={item} offers={offers} onMessage={onMessage}/>)}
         <button className="underline" disabled={busy} onClick={()=>remove(item.id)}>Remove</button></li>)}</ul></div>
     <form className="bg-[#ece9d8] bevel-out p-4 space-y-3" onSubmit={save}><h3 className="font-bold">Add a wanted release</h3>
-      <DiscogsLookup onImport={data=>setDraft(prev=>({...prev,artist:data.artist,title:data.title,format:data.format,pressing:data.pressing,discogsId:data.discogsId}))}/>
+      <DiscogsLookup onImport={data=>setDraft(prev=>({...prev,artist:data.artist,title:data.title,format:data.format,pressing:data.pressing,genres:data.genres,styles:data.styles,discogsId:data.discogsId}))}/>
       {Object.entries({artist:'Artist',title:'Album title',format:'Format',pressing:'Target pressing',budget:'Maximum budget ($, optional)'}).map(([key,label])=><label key={key} className="block">{label}
-        <input className="block w-full bg-white bevel-in p-1" required={key==='artist'||key==='title'} type={key==='budget'?'number':'text'} min="0" step="0.01" value={draft[key]} onChange={e=>setDraft(prev=>({...prev,[key]:e.target.value,discogsId:key==='budget'?prev.discogsId:null}))}/></label>)}
+        <input className="block w-full bg-white bevel-in p-1" required={key==='artist'||key==='title'} type={key==='budget'?'number':'text'} min="0" step="0.01" value={draft[key]} onChange={e=>setDraft(prev=>({...prev,[key]:e.target.value,genres:key==='budget'?prev.genres:[],styles:key==='budget'?prev.styles:[],discogsId:key==='budget'?prev.discogsId:null}))}/></label>)}
       <button disabled={busy||loading} className="aqua-btn text-white px-4 py-2">Save to wantlist</button><p role="status">{message}</p></form></section>
 }

@@ -576,7 +576,7 @@ export default function App({account=null,onProfileSave}:any) {
     if (!addForm.title.trim() || !addForm.artist.trim()) return;
     const newDisc = {
       id: crypto.randomUUID(),
-      discogsId: addForm.discogsId, cover: addForm.cover, tracks: addForm.tracks,
+      genres:addForm.genres, styles:addForm.styles, discogsId: addForm.discogsId, cover: addForm.cover, tracks: addForm.tracks,
       releaseId: addForm.discogsId ? 'discogs-'+addForm.discogsId : 'rel-loveless',
       title: addForm.title.trim(),
       artist: addForm.artist.trim(),
@@ -625,7 +625,7 @@ export default function App({account=null,onProfileSave}:any) {
   const visibleShelf = shelf.filter(item=>{
     if (shelfFormat && item.format !== shelfFormat) return false;
     if (tradeOnly && !item.openToTrade) return false;
-    const searchable = [item.artist,item.title,item.pressing,item.discogsId].join(' ').toLowerCase();
+    const searchable = [item.artist,item.title,item.pressing,item.discogsId,...(item.genres||[]),...(item.styles||[])].join(' ').toLowerCase();
     return terms.every(term=>searchable.includes(term));
   });
   const totalBinderPages = Math.max(1, Math.ceil(visibleShelf.length / 4));

@@ -1,14 +1,14 @@
 import React, { useState } from 'react';
 import { db } from './backend';
 
-const shared = { artist: 'Artist', title: 'Album', format: 'Format', pressing: 'Pressing', discogsId: 'Discogs release ID' };
+const shared = { artist: 'Artist', title: 'Album', format: 'Format', pressing: 'Pressing', discogsId: 'Discogs release ID', genres: 'Genres', styles: 'Styles' };
 const columns = {
   shelf: { ...shared, year: 'Year', condition: 'Condition', value: 'Estimated value (USD)', openToTrade: 'Open to trade', notes: 'Copy notes' },
   wantlist: { ...shared, budget: 'Maximum budget (USD)' }
 };
 
 function csvCell(value) {
-  let text = String(value ?? '');
+  let text = (Array.isArray(value) ? value.join(' | ') : String(value ?? ''));
   if (/^\s*[=+@-]|^[\t\r\n]/.test(text)) text = "'" + text;
   return '"' + text.replaceAll('"', '""') + '"';
 }
