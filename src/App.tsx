@@ -262,11 +262,7 @@ const JewelCaseArtwork = ({
 // ============================================================================
 // SEED DATA
 // ============================================================================
-const BARCODE_PRESETS = [
-  { barcode: '5017556300602', catalogNo: 'CRECD 060', releaseId: 'rel-loveless', title: 'Loveless', artist: 'My Bloody Valentine', year: 1991, format: 'CD', pressing: '1991 UK Creation First Press', condition: 'NM', value: 48, seed: 'loveless' },
-  { barcode: '724385522925', catalogNo: '7243 8 55229 2 5', releaseId: 'rel-okcomputer', title: 'OK Computer', artist: 'Radiohead', year: 1997, format: 'CD', pressing: '1997 UK Parlophone First Press', condition: 'VG+', value: 24, seed: 'okcomputer' },
-  { barcode: '659457206512', catalogNo: 'STH2065', releaseId: 'rel-madvillainy', title: 'Madvillainy', artist: 'Madvillain', year: 2004, format: 'Vinyl', pressing: '2004 US Stones Throw 2xLP', condition: 'NM', value: 85, seed: 'madvillainy' }
-];
+const EMPTY_COPY = {title:'',artist:'',year:'',format:'CD',pressing:'',condition:'Ungraded',value:'',openToTrade:false,seed:'disc'};
 
 const INITIAL_RELEASES = {
   'rel-loveless': {
@@ -462,7 +458,7 @@ export default function App({account=null,onProfileSave}:any) {
   const [postForm, setPostForm] = useState({ crate: 'c/Albums', title: '', body: '', releaseId: 'rel-loveless' });
 
   // Add CD form state
-  const [addForm, setAddForm] = useState({ title: '', artist: '', year: 1998, format: 'CD', pressing: 'Original First Press', condition: 'NM', value: 30, openToTrade: false, seed: 'loveless' });
+  const [addForm, setAddForm] = useState(EMPTY_COPY);
 
   const triggerToast = (msg) => {
     setToastMessage(msg);
@@ -581,29 +577,18 @@ export default function App({account=null,onProfileSave}:any) {
     triggerToast('Topic posted successfully to crate!');
   };
 
-  const handleAddDisc = async (e) => {
-    e.preventDefault();
-    if (!addForm.title.trim() || !addForm.artist.trim()) return;
-    const newDisc = {
-      id: crypto.randomUUID(),
-      genres:addForm.genres, styles:addForm.styles, discogsId: addForm.discogsId, cover: addForm.cover, tracks: addForm.tracks,
-      releaseId: addForm.discogsId ? 'discogs-'+addForm.discogsId : 'rel-loveless',
-      title: addForm.title.trim(),
-      artist: addForm.artist.trim(),
-      year: Number(addForm.year) || null,
-      format: addForm.format,
-      pressing: addForm.pressing,
-      condition: addForm.condition,
-      value: addForm.value==='' ? null : Number(addForm.value),
-      openToTrade: addForm.openToTrade,
-      seed: addForm.seed || 'loveless',
-      notes: 'Added via quick catalog.'
-    };
-    if(!(await addShelfItem(newDisc)))return;
-    setAddForm({title:"",artist:"",year:"",format:"CD",pressing:"",condition:"NM",value:0,openToTrade:false,seed:"disc"});
-    setShowAddModal(false);
-    triggerToast(`Added "${newDisc.title}" to your CD Shelf!`);
-  };
+  const [savingCopy,setSavingCopy]=useState(false);
+  async function saveNewCopy(form){
+    if(!form.title.trim() || !form.artist.trim())throw Error('Enter the artist and album title.');
+    setSavingCopy(true);
+    try {
+      const item={...form,id:crypto.randomUUID(),title:form.title.trim(),artist:form.artist.trim(),
+        releaseId:form.discogsId?'discogs-'+form.discogsId:null,year:Number(form.year)||null,
+        value:form.value===''?null:Number(form.value),notes:''};
+      if(!(await addShelfItem(item)))throw Error('The copy could not be saved. Please try again.');
+      setAddForm(EMPTY_COPY);setShowAddModal(false);triggerToast('Added “'+item.title+'” to your shelf.');
+    }finally{setSavingCopy(false)}
+  }
 
   const handleSendAim = () => {
     if(account){triggerToast('Live messaging is not connected yet.');return;}
@@ -917,14 +902,14 @@ export default function App({account=null,onProfileSave}:any) {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {visibleShelf.map((item) => (
                   <div key={item.id} className="group bg-[#f4f1ea] border border-[#627d98] p-4 flex gap-4 shadow-sm hover:bg-white transition">
-                    <div onClick={() => { if(item.discogsId){window.open('https://www.discogs.com/release/'+item.discogsId,'_blank','noopener');return;} setSelectedReleaseId(item.releaseId); setActiveView('release'); }} className="cursor-pointer">
+                    <div onClick={() => { if(item.discogsId){window.open('https://www.discogs.com/release/'+item.discogsId,'_blank','noopener');return;} if(!releases[item.releaseId]){openCopy(item);return;} setSelectedReleaseId(item.releaseId); setActiveView('release'); }} className="cursor-pointer">
                       {item.cover?<img src={item.cover} alt={item.title} width="80" height="80"/>:<JewelCaseArtwork seed={item.seed} size="md" format={item.format} />}
                     </div>
                     <div className="flex-1 min-w-0 flex flex-col justify-between">
                       <div>
                         <div className="flex items-start justify-between">
                           <h3
-                            onClick={() => { if(item.discogsId){window.open('https://www.discogs.com/release/'+item.discogsId,'_blank','noopener');return;} setSelectedReleaseId(item.releaseId); setActiveView('release'); }}
+                            onClick={() => { if(item.discogsId){window.open('https://www.discogs.com/release/'+item.discogsId,'_blank','noopener');return;} if(!releases[item.releaseId]){openCopy(item);return;} setSelectedReleaseId(item.releaseId); setActiveView('release'); }}
                             className="text-sm font-bold text-[#0369a1] underline cursor-pointer truncate"
                           >
                             {item.title}
@@ -1239,7 +1224,7 @@ export default function App({account=null,onProfileSave}:any) {
         {account && editingCopy.original.discogsId && <MatrixDirectory key={editingCopy.original.discogsId} releaseId={editingCopy.original.discogsId}/>}
         {editingCopy.original.tracks?.length>0 && <details className="my-2"><summary>Tracklist ({editingCopy.original.tracks.length})</summary><ol>{editingCopy.original.tracks.map((t,i)=><li key={i}>{t.position} {t.title} {t.duration}</li>)}</ol></details>}
         <form onSubmit={saveCopy} className="space-y-3 mt-3">
-          <label className="block">Condition <select value={editingCopy.condition} onChange={e=>setEditingCopy({...editingCopy,condition:e.target.value})}>{["M","NM","VG+","VG","G+","G","F","P"].map(v=><option key={v}>{v}</option>)}</select></label>
+          <label className="block">Condition <select value={editingCopy.condition} onChange={e=>setEditingCopy({...editingCopy,condition:e.target.value})}>{["Ungraded","M","NM","VG+","VG","G+","G","F","P"].map(v=><option key={v}>{v}</option>)}</select></label>
           <label className="block">Estimated value ($) <input type="number" step="0.01" min="0" className="bg-white bevel-in p-1" value={editingCopy.value} onChange={e=>setEditingCopy({...editingCopy,value:e.target.value})}/></label>
           <label className="block">Notes about this copy<textarea maxLength={4000} className="block w-full bg-white bevel-in p-2" value={editingCopy.notes} onChange={e=>setEditingCopy({...editingCopy,notes:e.target.value})}/></label>
           {copyError&&<p role="alert">{copyError}</p>}
@@ -1247,30 +1232,16 @@ export default function App({account=null,onProfileSave}:any) {
         </form></dialog>}
       {showAddModal && (
         <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
-          <div className="max-h-[90vh] overflow-y-auto w-full max-w-md bg-[#ece9d8] bevel-out shadow-2xl">
+          <div role="dialog" aria-label="Add to shelf" className="max-h-[90vh] overflow-y-auto w-full max-w-md bg-[#ece9d8] bevel-out shadow-2xl">
             <div className="forum-header-bar text-white px-3 py-1.5 text-xs font-bold flex items-center justify-between">
-              <span>:: CATALOG CD / VINYL TO SHELF</span>
-              <button onClick={() => setShowAddModal(false)} className="bevel-btn px-1.5 text-black font-bold cursor-pointer">X</button>
+              <span>Add to shelf</span>
+              <button disabled={savingCopy} aria-label="Close add to shelf" onClick={() => setShowAddModal(false)} className="bevel-btn px-1.5 text-black font-bold cursor-pointer">X</button>
             </div>
 
-            <form onSubmit={handleAddDisc} className="p-4 space-y-3 text-xs">
-              <div>
-                <DiscogsLookup onImport={data=>setAddForm(prev=>({...prev,...data,seed:data.title}))}/>
-                <label className="block font-bold mb-1">Sample presets</label>
-                <div className="flex flex-wrap gap-1">
-                  {BARCODE_PRESETS.map((p) => (
-                    <button
-                      key={p.barcode}
-                      type="button"
-                      onClick={() => setAddForm({ title: p.title, artist: p.artist, year: p.year, format: p.format, pressing: p.pressing, condition: p.condition, value: p.value, openToTrade: false, seed: p.seed })}
-                      className="bevel-btn px-2 py-1 text-[10px] font-mono font-bold text-[#0369a1] cursor-pointer"
-                    >
-                      {p.title} ({p.year})
-                    </button>
-                  ))}
-                </div>
-              </div>
-
+            <div className="p-4 space-y-3 text-sm">
+              <DiscogsLookup quickAdd onImport={data=>saveNewCopy({...EMPTY_COPY,...data,seed:data.title})}/>
+              <details><summary className="cursor-pointer underline">Enter a release manually</summary>
+              <form onSubmit={async e=>{e.preventDefault();if(!savingCopy)try{await saveNewCopy(addForm)}catch(error){triggerToast(error.message)}}} className="space-y-3 pt-3">
               <div>
                 <label className="block font-bold mb-1">Album Title *</label>
                 <input
@@ -1329,13 +1300,13 @@ export default function App({account=null,onProfileSave}:any) {
                 </div>
               </div>
 
-              <label className="block">Copy condition<select className="ml-2 bg-white p-1" value={addForm.condition} onChange={e=>setAddForm(p=>({...p,condition:e.target.value}))}>{["M","NM","VG+","VG","G+","G","F","P"].map(c=><option key={c}>{c}</option>)}</select></label>
+              <label className="block">Copy condition<select className="ml-2 bg-white p-1" value={addForm.condition} onChange={e=>setAddForm(p=>({...p,condition:e.target.value}))}>{["Ungraded","M","NM","VG+","VG","G+","G","F","P"].map(c=><option key={c}>{c}</option>)}</select></label>
               <label className="block"><input type="checkbox" checked={addForm.openToTrade} onChange={e=>setAddForm(p=>({...p,openToTrade:e.target.checked}))}/> Open to trade</label>
               <div className="flex justify-end gap-2 pt-2">
                 <button type="button" onClick={() => setShowAddModal(false)} className="bevel-btn px-4 py-1.5 font-bold cursor-pointer">Cancel</button>
-                <button type="submit" className="aqua-btn text-white px-4 py-1.5 font-bold cursor-pointer">Save to Shelf</button>
+                <button type="submit" disabled={savingCopy} className="aqua-btn text-white px-4 py-1.5 font-bold cursor-pointer">Save to Shelf</button>
               </div>
-            </form>
+            </form></details></div>
           </div>
         </div>
       )}
@@ -1345,7 +1316,7 @@ export default function App({account=null,onProfileSave}:any) {
       ==================================================================== */}
       {showNewPostModal && (
         <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
-          <div className="max-h-[90vh] overflow-y-auto w-full max-w-md bg-[#ece9d8] bevel-out shadow-2xl">
+          <div role="dialog" aria-label="Add to shelf" className="max-h-[90vh] overflow-y-auto w-full max-w-md bg-[#ece9d8] bevel-out shadow-2xl">
             <div className="forum-header-bar text-white px-3 py-1.5 text-xs font-bold flex items-center justify-between">
               <span>:: POST NEW PHPBB FORUM TOPIC</span>
               <button onClick={() => setShowNewPostModal(false)} className="bevel-btn px-1.5 text-black font-bold cursor-pointer">X</button>
